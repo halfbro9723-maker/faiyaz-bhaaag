@@ -183,6 +183,18 @@
             backdrop-filter: blur(3px);
         }
 
+        .powerup-badge {
+            color: #00e5ff;
+            background: rgba(0, 30, 60, 0.75);
+            border-color: #00e5ff;
+            animation: pulseBadge 1s infinite alternate;
+        }
+
+        @keyframes pulseBadge {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.06); }
+        }
+
         .lives-badge {
             color: #ff3b30;
             font-size: 1.1rem;
@@ -201,6 +213,7 @@
     <!-- HUD -->
     <div id="hud" class="hidden">
         <div class="hud-badge" id="hud-distance">📍 0 m</div>
+        <div class="hud-badge powerup-badge hidden" id="hud-powerup">⚡ NONE</div>
         <div class="hud-badge lives-badge" id="hud-lives">❤️❤️❤️</div>
     </div>
 
@@ -211,7 +224,8 @@
             <div class="instructions">
                 <strong>Mobile:</strong> Swipe Left/Right to Dodge, Swipe Up to Jump.<br>
                 <strong>Desktop:</strong> Arrow Keys / A & D, Spacebar to Jump.<br><br>
-                ⚠️ <em>Jump over Rocks. Walls will stop you dead!</em>
+                🛡️ <em>Shield: Protects against hits for 30s.</em><br>
+                💨 <em>Fart Jetpack: Fly safely above obstacles for 30s!</em>
             </div>
             <div class="btn-group">
                 <button id="btn-start" class="btn">RUN!</button>
@@ -268,17 +282,19 @@
         };
 
         const AudioConfig = {
-            introAudioUrl:  "sfx/intro.mp3",
-            swipeAudioUrl:  "sfx/swipe.mp3",
-            jumpAudioUrl:   "sfx/jump.mp3",
-            hit1AudioUrl:   "sfx/hit1.mp3",
-            hit2AudioUrl:   "sfx/hit2.mp3",
-            wallAudioUrl:   "sfx/wall_crash.mp3",
-            caughtAudioUrl: "sfx/caught.mp3"
+            introAudioUrl:    "sfx/intro.mp3",
+            swipeAudioUrl:    "sfx/swipe.mp3",
+            jumpAudioUrl:     "sfx/jump.mp3",
+            hit1AudioUrl:     "sfx/hit1.mp3",
+            hit2AudioUrl:     "sfx/hit2.mp3",
+            wallAudioUrl:     "sfx/wall_crash.mp3",
+            caughtAudioUrl:   "sfx/caught.mp3",
+            shieldAudioUrl:   "sfx/shield.mp3",   // Shield pickup sound
+            fartAudioUrl:     "sfx/fart.mp3"      // Fart launch sound
         };
 
         /* ==========================================================
-           2. TEXTURE LOADER & FALLBACKS
+           2. TEXTURE LOADER & FALLBACK SYSTEM
            ========================================================== */
         const textureLoader = new THREE.TextureLoader();
 
@@ -333,7 +349,7 @@
         }
 
         /* ==========================================================
-           3. AUDIO MANAGER (NO STACKING + PRIORITY OVERRIDE)
+           3. AUDIO MANAGER (PRIORITY + SOUND GENERATORS)
            ========================================================== */
         const AUDIO_PRIORITY = { LOW: 1, HIGH: 2 };
 
@@ -359,7 +375,7 @@
                 this.currentPriority = 0;
             }
 
-            playSound(url, priority, fallbackFreq = 220, type = 'sine', duration = 0.15, onEnded = null) {
+            playSound(url, priority, fallbackCallback = null, onEnded = null) {
                 if (priority < this.currentPriority) return;
 
                 this.stopCurrent();
@@ -380,16 +396,16 @@
                     this.currentAudio = audio;
                     audio.onended = done;
                     audio.onerror = () => {
-                        this.playBeep(fallbackFreq, type, duration);
-                        setTimeout(done, duration * 1000);
+                        if (fallbackCallback) fallbackCallback();
+                        setTimeout(done, 500);
                     };
                     audio.play().catch(() => {
-                        this.playBeep(fallbackFreq, type, duration);
-                        setTimeout(done, duration * 1000);
+                        if (fallbackCallback) fallbackCallback();
+                        setTimeout(done, 500);
                     });
                 } else {
-                    this.playBeep(fallbackFreq, type, duration);
-                    setTimeout(done, duration * 1000);
+                    if (fallbackCallback) fallbackCallback();
+                    setTimeout(done, 500);
                 }
             }
 
@@ -409,21 +425,58 @@
                 } catch(e) {}
             }
 
-            playJump() { this.playSound(AudioConfig.jumpAudioUrl, AUDIO_PRIORITY.LOW, 350, 'sine', 0.15); }
-            playSwipe() { this.playSound(AudioConfig.swipeAudioUrl, AUDIO_PRIORITY.LOW, 220, 'triangle', 0.08); }
+            playProceduralFart() {
+                if (!this.ctx) return;
+                try {
+                    // Low noisy rumble
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(55, this.ctx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.6);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.6);
+                } catch(e) {}
+            }
+
+            playProceduralShield() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(680, this.ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.4);
+                } catch(e) {}
+            }
+
+            playJump() { this.playSound(AudioConfig.jumpAudioUrl, AUDIO_PRIORITY.LOW, () => this.playBeep(350, 'sine', 0.15)); }
+            playSwipe() { this.playSound(AudioConfig.swipeAudioUrl, AUDIO_PRIORITY.LOW, () => this.playBeep(220, 'triangle', 0.08)); }
             playHit(hitIndex) {
                 const urls = [AudioConfig.hit1AudioUrl, AudioConfig.hit2AudioUrl, AudioConfig.caughtAudioUrl];
-                this.playSound(urls[hitIndex - 1], AUDIO_PRIORITY.HIGH, 120 - hitIndex * 20, 'sawtooth', 0.4);
+                this.playSound(urls[hitIndex - 1], AUDIO_PRIORITY.HIGH, () => this.playBeep(120 - hitIndex * 20, 'sawtooth', 0.4));
             }
-            playWallCrash() { this.playSound(AudioConfig.wallAudioUrl, AUDIO_PRIORITY.HIGH, 60, 'sawtooth', 0.6); }
-            playIntro(onComplete) { this.playSound(AudioConfig.introAudioUrl, AUDIO_PRIORITY.HIGH, 180, 'sine', 2.0, onComplete); }
-            playCaught(onComplete) { this.playSound(AudioConfig.caughtAudioUrl, AUDIO_PRIORITY.HIGH, 80, 'sawtooth', 1.5, onComplete); }
+            playWallCrash() { this.playSound(AudioConfig.wallAudioUrl, AUDIO_PRIORITY.HIGH, () => this.playBeep(60, 'sawtooth', 0.6)); }
+            playIntro(onComplete) { this.playSound(AudioConfig.introAudioUrl, AUDIO_PRIORITY.HIGH, () => this.playBeep(180, 'sine', 2.0), onComplete); }
+            playCaught(onComplete) { this.playSound(AudioConfig.caughtAudioUrl, AUDIO_PRIORITY.HIGH, () => this.playBeep(80, 'sawtooth', 1.5), onComplete); }
+            playShield() { this.playSound(AudioConfig.shieldAudioUrl, AUDIO_PRIORITY.HIGH, () => this.playProceduralShield()); }
+            playFart() { this.playSound(AudioConfig.fartAudioUrl, AUDIO_PRIORITY.HIGH, () => this.playProceduralFart()); }
         }
 
         const soundManager = new SoundFX();
 
         /* ==========================================================
-           4. CLEAN LEADERBOARD (KAIF ONLY INITIALLY)
+           4. LEADERBOARD SYSTEM
            ========================================================== */
         class LeaderboardSystem {
             constructor() {
@@ -502,18 +555,21 @@
         const leaderboard = new LeaderboardSystem();
 
         /* ==========================================================
-           5. GAME ENGINE & ORIGINAL SKY/LIGHTING
+           5. GAME ENGINE & SCENE
            ========================================================== */
         const LANES = [-2.0, 0, 2.0];
         const CHUNK_LENGTH = 50;
         const NUM_CHUNKS = 4;
         const GRAVITY = -24;
         const JUMP_VELOCITY = 8.5;
+        const FART_FLY_HEIGHT = 3.2; // Perfectly clears rocks & walls while keeping them clearly in view
 
         let scene, camera, renderer;
-        let player, guard;
+        let player, guard, shieldMesh;
         let groundChunks = [];
         let obstacles = [];
+        let powerupItems = [];
+        let fartParticles = [];
 
         let isRunning = false;
         let isIntroActive = false;
@@ -525,6 +581,11 @@
         let isGrounded = true;
         let lives = 3;
         let clock = new THREE.Clock();
+
+        // Power-Up State Management
+        let activePowerup = null; // 'shield' | 'fart' | null
+        let powerupTimer = 0;
+        let powerupCooldown = 45; // Seconds before generating next powerup item
 
         function updateCameraView() {
             const aspect = window.innerWidth / window.innerHeight;
@@ -546,7 +607,6 @@
             const container = document.getElementById('game-container');
             scene = new THREE.Scene();
 
-            // Original clean sky blue background and atmospheric distance fog
             scene.background = new THREE.Color(0x7ec0ee);
             scene.fog = new THREE.Fog(0x7ec0ee, 25, 85);
 
@@ -559,7 +619,6 @@
             renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
-            // Lighting from original
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.7);
             scene.add(hemiLight);
 
@@ -579,12 +638,11 @@
         }
 
         /* ==========================================================
-           6. CHARACTER BUILDER
+           6. CHARACTERS & SHIELD MESH
            ========================================================== */
         function createCharacter(faceTexture, clothColor) {
             const group = new THREE.Group();
 
-            // Head Cube (Front textured with provided face)
             const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
             const faceMat = new THREE.MeshLambertMaterial({ map: faceTexture });
             const skinMat = new THREE.MeshLambertMaterial({ color: 0xffdfbe });
@@ -594,7 +652,6 @@
             head.castShadow = true;
             group.add(head);
 
-            // Torso
             const torsoGeo = new THREE.BoxGeometry(0.6, 0.7, 0.35);
             const torsoMat = new THREE.MeshLambertMaterial({ color: clothColor });
             const torso = new THREE.Mesh(torsoGeo, torsoMat);
@@ -602,7 +659,6 @@
             torso.castShadow = true;
             group.add(torso);
 
-            // Limbs
             const limbGeo = new THREE.BoxGeometry(0.18, 0.55, 0.2);
             const limbMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
 
@@ -633,6 +689,20 @@
         function buildCharacters() {
             player = createCharacter(loadedTextures.playerFace, 0xe07a2d);
             scene.add(player);
+
+            // Shield Bubble Mesh (Translucent, Non-Intrusive)
+            const shieldGeo = new THREE.SphereGeometry(1.05, 24, 20);
+            const shieldMat = new THREE.MeshBasicMaterial({
+                color: 0x4dd0e1,
+                transparent: true,
+                opacity: 0.28,
+                wireframe: false,
+                depthWrite: false
+            });
+            shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+            shieldMesh.position.set(0, 0.85, 0);
+            shieldMesh.visible = false;
+            player.add(shieldMesh);
 
             guard = createCharacter(loadedTextures.guardFace, 0x223344);
             guard.position.set(0, 0, 3.5);
@@ -709,7 +779,7 @@
         }
 
         /* ==========================================================
-           8. OBSTACLES & CONTROLS
+           8. OBSTACLES & POWER-UPS SPAWNING
            ========================================================== */
         function spawnObstacle(zDistance) {
             const laneIndex = Math.floor(Math.random() * 3);
@@ -741,6 +811,68 @@
             obstacles.push(mesh);
         }
 
+        function spawnPowerupItem(zDistance) {
+            const laneIndex = Math.floor(Math.random() * 3);
+            const laneX = LANES[laneIndex];
+            const type = Math.random() > 0.5 ? 'shield' : 'fart';
+
+            const group = new THREE.Group();
+            if (type === 'shield') {
+                // Glowing Cyan Orb
+                const geo = new THREE.SphereGeometry(0.42, 16, 16);
+                const mat = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+                const mesh = new THREE.Mesh(geo, mat);
+                const halo = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({
+                    color: 0x00e5ff, transparent: true, opacity: 0.35
+                }));
+                group.add(mesh, halo);
+            } else {
+                // Green Toxic Fart Cloud Icon
+                const puffMat = new THREE.MeshLambertMaterial({ color: 0x76ff03 });
+                for (let i = 0; i < 4; i++) {
+                    const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24), puffMat);
+                    puff.position.set((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.3);
+                    group.add(puff);
+                }
+            }
+
+            group.position.set(laneX, 0.9, zDistance);
+            group.userData = { isPowerup: true, type: type };
+            scene.add(group);
+            powerupItems.push(group);
+        }
+
+        /* ==========================================================
+           9. PARTICLE ENGINE (FART JETPACK BURST)
+           ========================================================== */
+        function createFartPuff(position, count = 3, isBurst = false) {
+            const pMat = new THREE.MeshBasicMaterial({
+                color: isBurst ? 0x99cc00 : 0x76c426,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            for (let i = 0; i < count; i++) {
+                const size = 0.12 + Math.random() * (isBurst ? 0.25 : 0.14);
+                const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(size), pMat.clone());
+                mesh.position.copy(position);
+                mesh.position.x += (Math.random() - 0.5) * 0.35;
+                mesh.position.y += (Math.random() - 0.5) * 0.2;
+                mesh.position.z += (Math.random() - 0.5) * 0.2;
+
+                const vx = (Math.random() - 0.5) * (isBurst ? 2.5 : 0.8);
+                const vy = isBurst ? -(1.5 + Math.random() * 2) : -(0.5 + Math.random());
+                const vz = (Math.random() - 0.5) * 1.5 + 2.0;
+
+                mesh.userData = { vx, vy, vz, life: 1.0, decay: isBurst ? 1.6 : 2.2 };
+                scene.add(mesh);
+                fartParticles.push(mesh);
+            }
+        }
+
+        /* ==========================================================
+           10. CONTROLS
+           ========================================================== */
         function setupControls() {
             window.addEventListener('keydown', (e) => {
                 if (!isRunning) return;
@@ -784,6 +916,7 @@
         }
 
         function doJump() {
+            if (activePowerup === 'fart') return; // Flying handles altitude
             if (isGrounded) {
                 playerVY = JUMP_VELOCITY;
                 isGrounded = false;
@@ -792,13 +925,44 @@
         }
 
         function fastDrop() {
+            if (activePowerup === 'fart') return;
             if (!isGrounded) {
                 playerVY = -14;
             }
         }
 
         /* ==========================================================
-           9. GAME LIFECYCLE & UI FLOW
+           11. POWER-UP ACTIVATION
+           ========================================================== */
+        function activatePowerup(type) {
+            activePowerup = type;
+            powerupTimer = 30; // 30 seconds active
+            powerupCooldown = 55; // Next power-up won't spawn until cooldown expires
+
+            const hudPower = document.getElementById('hud-powerup');
+            hudPower.classList.remove('hidden');
+
+            if (type === 'shield') {
+                shieldMesh.visible = true;
+                soundManager.playShield();
+            } else if (type === 'fart') {
+                shieldMesh.visible = false;
+                soundManager.playFart();
+                // Burst launching animation
+                createFartPuff(player.position.clone().add(new THREE.Vector3(0, 0.4, 0.2)), 16, true);
+            }
+        }
+
+        function deactivatePowerup() {
+            if (activePowerup === 'shield') {
+                shieldMesh.visible = false;
+            }
+            activePowerup = null;
+            document.getElementById('hud-powerup').classList.add('hidden');
+        }
+
+        /* ==========================================================
+           12. GAME FLOW & HIT LOGIC
            ========================================================== */
         const startMenu = document.getElementById('start-menu');
         const gameOverMenu = document.getElementById('game-over-menu');
@@ -860,6 +1024,7 @@
             isGrounded = true;
             isIntroActive = true;
             isRunning = true;
+            deactivatePowerup();
             updateLivesUI();
 
             player.position.set(LANES[targetLane], 0, 0);
@@ -867,6 +1032,12 @@
 
             for (let obs of obstacles) scene.remove(obs);
             obstacles = [];
+
+            for (let p of powerupItems) scene.remove(p);
+            powerupItems = [];
+
+            for (let part of fartParticles) scene.remove(part);
+            fartParticles = [];
 
             soundManager.playIntro(() => {
                 isIntroActive = false;
@@ -876,6 +1047,11 @@
         function handleObstacleHit(obs) {
             scene.remove(obs);
             obstacles.splice(obstacles.indexOf(obs), 1);
+
+            // Shield Protection: Absorbs hit completely without triggering audio or losing life
+            if (activePowerup === 'shield') {
+                return;
+            }
 
             if (obs.userData.type === 'wall') {
                 lives = 0;
@@ -896,6 +1072,7 @@
 
         function triggerGameOver() {
             isRunning = false;
+            deactivatePowerup();
             guard.position.z = player.position.z + 0.5;
             guard.position.x = player.position.x;
 
@@ -928,7 +1105,7 @@
         }
 
         /* ==========================================================
-           10. ANIMATION LOOP
+           13. ANIMATION & MAIN TICK LOOP
            ========================================================== */
         let nextSpawnDist = 30;
 
@@ -943,25 +1120,58 @@
                 distanceTravelled += moveDist;
                 document.getElementById('hud-distance').innerText = `📍 ${Math.floor(distanceTravelled)} m`;
 
+                // Handle Active Powerup Timers
+                if (activePowerup) {
+                    powerupTimer -= delta;
+                    const badgeText = activePowerup === 'shield' 
+                        ? `🛡️ SHIELD ${Math.ceil(powerupTimer)}s` 
+                        : `💨 FART ${Math.ceil(powerupTimer)}s`;
+                    document.getElementById('hud-powerup').innerText = badgeText;
+
+                    if (powerupTimer <= 0) {
+                        deactivatePowerup();
+                    }
+                }
+
+                if (powerupCooldown > 0) {
+                    powerupCooldown -= delta;
+                }
+
+                // Lateral Player Movement
                 const targetX = LANES[targetLane];
                 player.position.x += (targetX - player.position.x) * 14 * delta;
 
-                if (!isGrounded) {
-                    playerVY += GRAVITY * delta;
-                    playerY += playerVY * delta;
-                    if (playerY <= 0) {
-                        playerY = 0;
-                        playerVY = 0;
-                        isGrounded = true;
+                // Altitude / Jump & Fart Flight Physics
+                if (activePowerup === 'fart') {
+                    // Smoothly elevate to gliding altitude
+                    playerY += (FART_FLY_HEIGHT - playerY) * 6 * delta;
+                    isGrounded = false;
+
+                    // Emit fart jetpack particles
+                    if (Math.random() > 0.35) {
+                        createFartPuff(player.position.clone().add(new THREE.Vector3(0, 0.4, 0.2)), 2, false);
+                    }
+                } else {
+                    // Normal jump gravity
+                    if (!isGrounded) {
+                        playerVY += GRAVITY * delta;
+                        playerY += playerVY * delta;
+                        if (playerY <= 0) {
+                            playerY = 0;
+                            playerVY = 0;
+                            isGrounded = true;
+                        }
                     }
                 }
                 player.position.y = playerY;
 
+                // Guard Follow Position
                 const targetGuardZ = lives === 3 ? 3.5 : (lives === 2 ? 2.2 : 1.2);
                 guard.position.z += (targetGuardZ - guard.position.z) * 4 * delta;
                 guard.position.x += (player.position.x - guard.position.x) * 10 * delta;
-                guard.position.y = playerY * 0.5;
+                guard.position.y = activePowerup === 'fart' ? 0 : playerY * 0.5;
 
+                // Character Running Limbs
                 const runCycle = Math.sin(time * currentSpeed * 1.2);
                 player.userData.leftLeg.rotation.x = runCycle * 0.6;
                 player.userData.rightLeg.rotation.x = -runCycle * 0.6;
@@ -973,6 +1183,7 @@
                 guard.userData.leftArm.rotation.x = -runCycle * 0.7;
                 guard.userData.rightArm.rotation.x = runCycle * 0.7;
 
+                // Track Ground Looping
                 for (let chunk of groundChunks) {
                     chunk.position.z += moveDist;
                     if (chunk.position.z > CHUNK_LENGTH) {
@@ -980,6 +1191,30 @@
                     }
                 }
 
+                // Power-Up Item Animation & Collision
+                for (let i = powerupItems.length - 1; i >= 0; i--) {
+                    const item = powerupItems[i];
+                    item.position.z += moveDist;
+                    item.rotation.y += delta * 3.0;
+
+                    const dz = Math.abs(item.position.z - player.position.z);
+                    const dx = Math.abs(item.position.x - player.position.x);
+
+                    // Pickup Check
+                    if (dz < 0.75 && dx < 0.75) {
+                        activatePowerup(item.userData.type);
+                        scene.remove(item);
+                        powerupItems.splice(i, 1);
+                        continue;
+                    }
+
+                    if (item.position.z > 6) {
+                        scene.remove(item);
+                        powerupItems.splice(i, 1);
+                    }
+                }
+
+                // Obstacle Movement & Collision
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const obs = obstacles[i];
                     obs.position.z += moveDist;
@@ -988,8 +1223,10 @@
                     const dx = Math.abs(obs.position.x - player.position.x);
 
                     if (dz < 0.65 && dx < 0.7) {
-                        if (obs.userData.jumpable && player.position.y > 0.75) {
-                            // Cleared
+                        // Flying cleanly over obstacles via Fart Jetpack or high jump
+                        if ((activePowerup === 'fart' && player.position.y > 2.3) || 
+                            (obs.userData.jumpable && player.position.y > 0.75)) {
+                            // Safe clearance
                         } else {
                             handleObstacleHit(obs);
                             continue;
@@ -1002,12 +1239,35 @@
                     }
                 }
 
+                // Spawning Obstacles & Power-ups
                 if (!isIntroActive) {
                     nextSpawnDist -= moveDist;
                     if (nextSpawnDist <= 0) {
-                        spawnObstacle(-55);
+                        // Spawn Power-up if cooldown reached and no power-up currently active
+                        if (powerupCooldown <= 0 && !activePowerup && Math.random() > 0.5) {
+                            spawnPowerupItem(-55);
+                            powerupCooldown = 30; // Reset timer so it doesn't chain-spawn
+                        } else {
+                            spawnObstacle(-55);
+                        }
                         nextSpawnDist = 18 + Math.random() * 12;
                     }
+                }
+            }
+
+            // Update Particle Physics
+            for (let i = fartParticles.length - 1; i >= 0; i--) {
+                const p = fartParticles[i];
+                p.userData.life -= delta * p.userData.decay;
+                p.material.opacity = Math.max(0, p.userData.life * 0.8);
+                p.position.x += p.userData.vx * delta;
+                p.position.y += p.userData.vy * delta;
+                p.position.z += p.userData.vz * delta;
+                p.scale.multiplyScalar(1.0 + delta * 1.5);
+
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    fartParticles.splice(i, 1);
                 }
             }
 
