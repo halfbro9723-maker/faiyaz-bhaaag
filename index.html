@@ -45,30 +45,30 @@
             z-index: 10;
             background: rgba(0, 0, 0, 0.65);
             backdrop-filter: blur(4px);
-            transition: opacity 0.3s;
+            transition: opacity 0.2s ease;
         }
 
         .dialog-box {
             background: #ffffff;
-            border-radius: 16px;
+            border-radius: 18px;
             padding: 24px 20px;
             width: 88%;
-            max-width: 380px;
+            max-width: 360px;
             text-align: center;
             box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
             border: 4px solid #b72b2b;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
+            0% { transform: scale(0.85); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
         }
 
         h1 {
             color: #b72b2b;
-            font-size: 1.5rem;
-            letter-spacing: 1px;
+            font-size: 1.45rem;
+            letter-spacing: 0.5px;
             margin-bottom: 12px;
             text-transform: uppercase;
         }
@@ -76,29 +76,86 @@
         .instructions {
             background: #fdf2f2;
             border-radius: 8px;
-            padding: 10px;
+            padding: 10px 12px;
             font-size: 0.82rem;
             color: #444;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             line-height: 1.5;
             text-align: left;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
         }
 
         .btn {
             background: linear-gradient(180deg, #d33838 0%, #a21c1c 100%);
             color: #fff;
             border: none;
-            padding: 12px 36px;
-            font-size: 1.1rem;
+            padding: 12px 24px;
+            font-size: 1.05rem;
             font-weight: bold;
             border-radius: 25px;
             cursor: pointer;
             box-shadow: 0 6px 15px rgba(211, 56, 56, 0.4);
-            transition: transform 0.1s, filter 0.2s;
+            transition: transform 0.1s;
+            width: 100%;
+        }
+
+        .btn-secondary {
+            background: #495057;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
         }
 
         .btn:active {
-            transform: scale(0.95);
+            transform: scale(0.96);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 2px solid #ced4da;
+            margin: 10px 0 16px 0;
+            font-size: 1rem;
+            outline: none;
+            text-align: center;
+        }
+
+        input[type="text"]:focus {
+            border-color: #b72b2b;
+        }
+
+        .leaderboard-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 12px 0 16px 0;
+            text-align: left;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-item.highlight {
+            background: #ffe3e3;
+            font-weight: bold;
+            color: #b72b2b;
         }
 
         /* --- HUD --- */
@@ -150,13 +207,26 @@
     <!-- START MODAL -->
     <div id="start-menu" class="overlay">
         <div class="dialog-box">
-            <h1>Bhaag Faiyaz Bhaag...</h1>
+            <h1>Bhaag Faiyaz Bhaag</h1>
             <div class="instructions">
                 <strong>Mobile:</strong> Swipe Left/Right to Dodge, Swipe Up to Jump.<br>
                 <strong>Desktop:</strong> Arrow Keys / A & D, Spacebar to Jump.<br><br>
                 ⚠️ <em>Jump over Rocks. Walls will stop you dead!</em>
             </div>
-            <button id="btn-start" class="btn">RUN!</button>
+            <div class="btn-group">
+                <button id="btn-start" class="btn">RUN!</button>
+                <button id="btn-open-leaderboard" class="btn btn-secondary">LEADERBOARD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NAME ENTRY MODAL -->
+    <div id="name-modal" class="overlay hidden">
+        <div class="dialog-box">
+            <h1>New Run!</h1>
+            <p style="font-size: 0.9rem; color: #495057;">Enter your name for the leaderboard:</p>
+            <input type="text" id="player-name-input" maxlength="12" placeholder="Your Name">
+            <button id="btn-save-name" class="btn">SAVE & CONTINUE</button>
         </div>
     </div>
 
@@ -164,8 +234,21 @@
     <div id="game-over-menu" class="overlay hidden">
         <div class="dialog-box">
             <h1 style="color: #333;">CAUGHT!</h1>
-            <p style="font-size: 1rem; color: #666; margin-bottom: 15px;">Final Distance: <strong id="final-dist" style="color: #b72b2b;">0 m</strong></p>
-            <button id="btn-restart" class="btn">PLAY AGAIN</button>
+            <p style="font-size: 1rem; color: #666; margin-bottom: 4px;">Final Distance: <strong id="final-dist" style="color: #b72b2b;">0 m</strong></p>
+            <p style="font-size: 0.85rem; color: #868e96; margin-bottom: 16px;">Best: <strong id="best-dist">0 m</strong></p>
+            <div class="btn-group">
+                <button id="btn-restart" class="btn">PLAY AGAIN</button>
+                <button id="btn-show-lb" class="btn btn-secondary">LEADERBOARD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD MODAL -->
+    <div id="leaderboard-menu" class="overlay hidden">
+        <div class="dialog-box">
+            <h1>Leaderboard</h1>
+            <div class="leaderboard-list" id="leaderboard-content"></div>
+            <button id="btn-close-lb" class="btn">BACK</button>
         </div>
     </div>
 
@@ -174,31 +257,28 @@
 
     <script>
         /* ==========================================================
-           1. ASSET CONFIGURATIONS (PUT YOUR FILES HERE)
+           1. ASSET CONFIGURATIONS
            ========================================================== */
-        
-        // 🖼️ IMAGES CONFIG: Place your image names here (or leave blank for defaults)
         const TextureConfig = {
-            playerFaceUrl: "textures/player_face.png", // Player cube face
-            guardFaceUrl:  "textures/guard_face.png",  // Guard cube face
-            roadUrl:       "textures/road_texture.png", // Road path
-            rockUrl:       "textures/rock_texture.png", // Rock obstacle
-            wallUrl:       "textures/wall_texture.png"  // Wall obstacle
+            playerFaceUrl: "textures/player_face.png",
+            guardFaceUrl:  "textures/guard_face.png",
+            roadUrl:       "textures/road_texture.png",
+            rockUrl:       "textures/rock_texture.png",
+            wallUrl:       "textures/wall_texture.png"
         };
 
-        // 🔊 AUDIO CONFIG: Place your audio filenames here
         const AudioConfig = {
-            introAudioUrl:  "sfx/intro.mp3",       // Plays at start (no obstacles during this)
-            swipeAudioUrl:  "sfx/swipe.mp3",       // Swiping left/right
-            jumpAudioUrl:   "sfx/jump.mp3",        // Jumping sound
-            hit1AudioUrl:   "sfx/hit1.mp3",        // 1st rock hit
-            hit2AudioUrl:   "sfx/hit2.mp3",        // 2nd rock hit
-            wallAudioUrl:   "sfx/wall_crash.mp3",  // Hitting a wall directly
-            caughtAudioUrl: "sfx/caught.mp3"       // 3rd hit / Caught final sound
+            introAudioUrl:  "sfx/intro.mp3",
+            swipeAudioUrl:  "sfx/swipe.mp3",
+            jumpAudioUrl:   "sfx/jump.mp3",
+            hit1AudioUrl:   "sfx/hit1.mp3",
+            hit2AudioUrl:   "sfx/hit2.mp3",
+            wallAudioUrl:   "sfx/wall_crash.mp3",
+            caughtAudioUrl: "sfx/caught.mp3"
         };
 
         /* ==========================================================
-           2. TEXTURE LOADER & FALLBACK SYSTEM
+           2. TEXTURE LOADER & FALLBACKS
            ========================================================== */
         const textureLoader = new THREE.TextureLoader();
 
@@ -206,11 +286,9 @@
             if (url) {
                 return textureLoader.load(
                     url,
+                    (t) => { t.needsUpdate = true; },
                     undefined,
-                    undefined,
-                    () => {
-                        console.warn(`Could not load ${url}, using fallback.`);
-                    }
+                    () => { console.warn(`Could not load ${url}, using fallback.`); }
                 );
             }
             return fallbackCanvasCallback ? fallbackCanvasCallback() : null;
@@ -221,33 +299,28 @@
             canvas.width = 128;
             canvas.height = 128;
             const ctx = canvas.getContext('2d');
-            
             ctx.fillStyle = bgColor;
             ctx.fillRect(0, 0, 128, 128);
-            
             ctx.fillStyle = '#333';
             ctx.beginPath();
             ctx.arc(38, 45, 8, 0, Math.PI * 2);
             ctx.arc(90, 45, 8, 0, Math.PI * 2);
             ctx.fill();
-
             ctx.strokeStyle = '#444';
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.arc(64, 75, 25, 0.2, Math.PI - 0.2);
             ctx.stroke();
-
             ctx.fillStyle = '#111';
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(label, 64, 115);
-
             return new THREE.CanvasTexture(canvas);
         }
 
         const loadedTextures = {
-            playerFace: loadTextureSafe(TextureConfig.playerFaceUrl, () => createFaceTexture('MODI', '#ffdfbe')),
-            guardFace:  loadTextureSafe(TextureConfig.guardFaceUrl, () => createFaceTexture('POLICE', '#dfbe9f')),
+            playerFace: loadTextureSafe(TextureConfig.playerFaceUrl, () => createFaceTexture('PLAYER', '#ffdfbe')),
+            guardFace:  loadTextureSafe(TextureConfig.guardFaceUrl, () => createFaceTexture('GUARD', '#dfbe9f')),
             road:       loadTextureSafe(TextureConfig.roadUrl, null),
             rock:       loadTextureSafe(TextureConfig.rockUrl, null),
             wall:       loadTextureSafe(TextureConfig.wallUrl, null)
@@ -260,17 +333,66 @@
         }
 
         /* ==========================================================
-           3. SOUND MANAGER
+           3. AUDIO MANAGER (NO STACKING + PRIORITY OVERRIDE)
            ========================================================== */
+        const AUDIO_PRIORITY = { LOW: 1, HIGH: 2 };
+
         class SoundFX {
             constructor() {
                 this.ctx = null;
+                this.currentAudio = null;
+                this.currentPriority = 0;
             }
+
             init() {
                 if (!this.ctx) {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 }
             }
+
+            stopCurrent() {
+                if (this.currentAudio) {
+                    this.currentAudio.pause();
+                    this.currentAudio.currentTime = 0;
+                    this.currentAudio = null;
+                }
+                this.currentPriority = 0;
+            }
+
+            playSound(url, priority, fallbackFreq = 220, type = 'sine', duration = 0.15, onEnded = null) {
+                if (priority < this.currentPriority) return;
+
+                this.stopCurrent();
+                this.currentPriority = priority;
+
+                let finished = false;
+                const done = () => {
+                    if (!finished) {
+                        finished = true;
+                        this.currentPriority = 0;
+                        this.currentAudio = null;
+                        if (onEnded) onEnded();
+                    }
+                };
+
+                if (url) {
+                    const audio = new Audio(url);
+                    this.currentAudio = audio;
+                    audio.onended = done;
+                    audio.onerror = () => {
+                        this.playBeep(fallbackFreq, type, duration);
+                        setTimeout(done, duration * 1000);
+                    };
+                    audio.play().catch(() => {
+                        this.playBeep(fallbackFreq, type, duration);
+                        setTimeout(done, duration * 1000);
+                    });
+                } else {
+                    this.playBeep(fallbackFreq, type, duration);
+                    setTimeout(done, duration * 1000);
+                }
+            }
+
             playBeep(freq, type, duration, gainVal = 0.2) {
                 if (!this.ctx) return;
                 try {
@@ -286,74 +408,102 @@
                     osc.stop(this.ctx.currentTime + duration);
                 } catch(e) {}
             }
-            playJump() {
-                if (AudioConfig.jumpAudioUrl) {
-                    const a = new Audio(AudioConfig.jumpAudioUrl);
-                    a.play().catch(() => this.playBeep(350, 'sine', 0.15, 0.3));
-                } else {
-                    this.playBeep(350, 'sine', 0.15, 0.3);
-                }
-            }
-            playSwipe() {
-                if (AudioConfig.swipeAudioUrl) {
-                    const a = new Audio(AudioConfig.swipeAudioUrl);
-                    a.play().catch(() => this.playBeep(220, 'triangle', 0.08, 0.2));
-                } else {
-                    this.playBeep(220, 'triangle', 0.08, 0.2);
-                }
-            }
+
+            playJump() { this.playSound(AudioConfig.jumpAudioUrl, AUDIO_PRIORITY.LOW, 350, 'sine', 0.15); }
+            playSwipe() { this.playSound(AudioConfig.swipeAudioUrl, AUDIO_PRIORITY.LOW, 220, 'triangle', 0.08); }
             playHit(hitIndex) {
                 const urls = [AudioConfig.hit1AudioUrl, AudioConfig.hit2AudioUrl, AudioConfig.caughtAudioUrl];
-                const targetUrl = urls[hitIndex - 1];
-                if (targetUrl) {
-                    const a = new Audio(targetUrl);
-                    a.play().catch(() => this.playBeep(120 - hitIndex * 20, 'sawtooth', 0.4, 0.4));
-                } else {
-                    this.playBeep(120 - hitIndex * 20, 'sawtooth', 0.4, 0.4);
-                }
+                this.playSound(urls[hitIndex - 1], AUDIO_PRIORITY.HIGH, 120 - hitIndex * 20, 'sawtooth', 0.4);
             }
-            playWallCrash() {
-                if (AudioConfig.wallAudioUrl) {
-                    const a = new Audio(AudioConfig.wallAudioUrl);
-                    a.play().catch(() => this.playBeep(60, 'sawtooth', 0.6, 0.6));
-                } else {
-                    this.playBeep(60, 'sawtooth', 0.6, 0.6);
-                }
-            }
-            playIntro(onComplete) {
-                if (AudioConfig.introAudioUrl) {
-                    const audio = new Audio(AudioConfig.introAudioUrl);
-                    audio.onended = onComplete;
-                    audio.play().catch(() => {
-                        this.playBeep(180, 'sine', 2.0, 0.25);
-                        setTimeout(onComplete, 2500);
-                    });
-                } else {
-                    this.playBeep(180, 'sine', 2.0, 0.25);
-                    setTimeout(onComplete, 2500);
-                }
-            }
-            playCaught(onComplete) {
-                if (AudioConfig.caughtAudioUrl) {
-                    const audio = new Audio(AudioConfig.caughtAudioUrl);
-                    audio.onended = onComplete;
-                    audio.play().catch(() => {
-                        this.playBeep(80, 'sawtooth', 1.5, 0.5);
-                        setTimeout(onComplete, 1600);
-                    });
-                } else {
-                    this.playBeep(80, 'sawtooth', 1.5, 0.5);
-                    setTimeout(onComplete, 1600);
-                }
-            }
+            playWallCrash() { this.playSound(AudioConfig.wallAudioUrl, AUDIO_PRIORITY.HIGH, 60, 'sawtooth', 0.6); }
+            playIntro(onComplete) { this.playSound(AudioConfig.introAudioUrl, AUDIO_PRIORITY.HIGH, 180, 'sine', 2.0, onComplete); }
+            playCaught(onComplete) { this.playSound(AudioConfig.caughtAudioUrl, AUDIO_PRIORITY.HIGH, 80, 'sawtooth', 1.5, onComplete); }
         }
 
         const soundManager = new SoundFX();
 
         /* ==========================================================
-           4. GAME ENGINE & RESPONSIVE CAMERA
+           4. CLEAN LEADERBOARD (KAIF ONLY INITIALLY)
            ========================================================== */
-        // Slightly adjusted lane width for tighter mobile framing
+        class LeaderboardSystem {
+            constructor() {
+                this.STORAGE_KEY_LB = 'bfb_leaderboard_custom_v1';
+                this.STORAGE_KEY_USER = 'bfb_player_tag_v1';
+                this.initialData = [
+                    { name: "kaif", score: "372846281271001823" }
+                ];
+            }
+
+            getPlayerName() {
+                return localStorage.getItem(this.STORAGE_KEY_USER) || '';
+            }
+
+            setPlayerName(name) {
+                if (name && name.trim()) {
+                    localStorage.setItem(this.STORAGE_KEY_USER, name.trim());
+                }
+            }
+
+            getScores() {
+                try {
+                    const local = localStorage.getItem(this.STORAGE_KEY_LB);
+                    return local ? JSON.parse(local) : this.initialData;
+                } catch {
+                    return this.initialData;
+                }
+            }
+
+            saveScore(name, scoreNum) {
+                if (!name) return;
+                let list = this.getScores();
+                const existing = list.find(item => item.name.toLowerCase() === name.toLowerCase());
+
+                if (existing) {
+                    if (Number(scoreNum) > Number(existing.score)) {
+                        existing.score = String(scoreNum);
+                    }
+                } else {
+                    list.push({ name: name.trim(), score: String(scoreNum) });
+                }
+
+                list.sort((a, b) => (BigInt(b.score) > BigInt(a.score) ? 1 : -1));
+                localStorage.setItem(this.STORAGE_KEY_LB, JSON.stringify(list));
+            }
+
+            getHighScore(name) {
+                if (!name) return 0;
+                const list = this.getScores();
+                const record = list.find(item => item.name.toLowerCase() === name.toLowerCase());
+                return record ? record.score : 0;
+            }
+
+            render(containerId, activeName = '') {
+                const container = document.getElementById(containerId);
+                const list = this.getScores();
+                container.innerHTML = '';
+
+                list.forEach((entry, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'leaderboard-item';
+                    if (activeName && entry.name.toLowerCase() === activeName.toLowerCase()) {
+                        row.classList.add('highlight');
+                    }
+
+                    const rankIcon = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                    row.innerHTML = `
+                        <span>${rankIcon} <strong>${entry.name}</strong></span>
+                        <span style="font-weight:bold; color:#b72b2b;">${entry.score} m</span>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+        }
+
+        const leaderboard = new LeaderboardSystem();
+
+        /* ==========================================================
+           5. GAME ENGINE & ORIGINAL SKY/LIGHTING
+           ========================================================== */
         const LANES = [-2.0, 0, 2.0];
         const CHUNK_LENGTH = 50;
         const NUM_CHUNKS = 4;
@@ -381,13 +531,10 @@
             camera.aspect = aspect;
 
             if (aspect < 1) {
-                // 📱 MOBILE / VERTICAL SCREEN:
-                // Increase FOV and move camera further back & higher to fit all 3 lanes completely
                 camera.fov = 72;
                 camera.position.set(0, 4.3, 6.2);
                 camera.lookAt(0, 1.2, -6.5);
             } else {
-                // 💻 DESKTOP / WIDE SCREEN:
                 camera.fov = 55;
                 camera.position.set(0, 3.8, 5.5);
                 camera.lookAt(0, 1.2, -6);
@@ -398,6 +545,8 @@
         function initScene() {
             const container = document.getElementById('game-container');
             scene = new THREE.Scene();
+
+            // Original clean sky blue background and atmospheric distance fog
             scene.background = new THREE.Color(0x7ec0ee);
             scene.fog = new THREE.Fog(0x7ec0ee, 25, 85);
 
@@ -410,7 +559,7 @@
             renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
-            // Lights
+            // Lighting from original
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x3d7030, 0.7);
             scene.add(hemiLight);
 
@@ -430,12 +579,12 @@
         }
 
         /* ==========================================================
-           5. CHARACTER BUILDER
+           6. CHARACTER BUILDER
            ========================================================== */
         function createCharacter(faceTexture, clothColor) {
             const group = new THREE.Group();
 
-            // Head Cube (Front face textured)
+            // Head Cube (Front textured with provided face)
             const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
             const faceMat = new THREE.MeshLambertMaterial({ map: faceTexture });
             const skinMat = new THREE.MeshLambertMaterial({ color: 0xffdfbe });
@@ -445,7 +594,7 @@
             head.castShadow = true;
             group.add(head);
 
-            // Body
+            // Torso
             const torsoGeo = new THREE.BoxGeometry(0.6, 0.7, 0.35);
             const torsoMat = new THREE.MeshLambertMaterial({ color: clothColor });
             const torso = new THREE.Mesh(torsoGeo, torsoMat);
@@ -482,18 +631,16 @@
         }
 
         function buildCharacters() {
-            // Player
             player = createCharacter(loadedTextures.playerFace, 0xe07a2d);
             scene.add(player);
 
-            // Guard
             guard = createCharacter(loadedTextures.guardFace, 0x223344);
             guard.position.set(0, 0, 3.5);
             scene.add(guard);
         }
 
         /* ==========================================================
-           6. ENVIRONMENT & TRACK
+           7. TRACK & ENVIRONMENT
            ========================================================== */
         function createTree() {
             const tree = new THREE.Group();
@@ -515,7 +662,6 @@
         function createTrackChunk(zPos) {
             const chunk = new THREE.Group();
 
-            // Track Road
             const roadGeo = new THREE.PlaneGeometry(6.6, CHUNK_LENGTH);
             const roadMat = loadedTextures.road 
                 ? new THREE.MeshLambertMaterial({ map: loadedTextures.road })
@@ -526,7 +672,6 @@
             road.receiveShadow = true;
             chunk.add(road);
 
-            // Grass Sides
             const grassGeo = new THREE.PlaneGeometry(30, CHUNK_LENGTH);
             const grassMat = new THREE.MeshLambertMaterial({ color: 0x4aa338 });
             
@@ -542,7 +687,6 @@
             rightGrass.receiveShadow = true;
             chunk.add(rightGrass);
 
-            // Trees
             for (let i = -CHUNK_LENGTH / 2; i < CHUNK_LENGTH / 2; i += 7) {
                 const treeL = createTree();
                 treeL.position.set(-4.8 - Math.random() * 3, 0, i);
@@ -565,7 +709,7 @@
         }
 
         /* ==========================================================
-           7. OBSTACLE GENERATOR
+           8. OBSTACLES & CONTROLS
            ========================================================== */
         function spawnObstacle(zDistance) {
             const laneIndex = Math.floor(Math.random() * 3);
@@ -574,7 +718,6 @@
 
             let mesh;
             if (isWall) {
-                // High Wall
                 const wallGeo = new THREE.BoxGeometry(1.8, 2.2, 0.4);
                 const wallMat = loadedTextures.wall
                     ? new THREE.MeshLambertMaterial({ map: loadedTextures.wall })
@@ -583,7 +726,6 @@
                 mesh.position.set(laneX, 1.1, zDistance);
                 mesh.userData = { type: 'wall', jumpable: false };
             } else {
-                // Low Rock
                 const rockGeo = new THREE.DodecahedronGeometry(0.65);
                 const rockMat = loadedTextures.rock
                     ? new THREE.MeshLambertMaterial({ map: loadedTextures.rock })
@@ -599,11 +741,7 @@
             obstacles.push(mesh);
         }
 
-        /* ==========================================================
-           8. CONTROLS
-           ========================================================== */
         function setupControls() {
-            // Keyboard
             window.addEventListener('keydown', (e) => {
                 if (!isRunning) return;
                 if (e.code === 'ArrowLeft' || e.code === 'KeyA') moveLane(-1);
@@ -612,7 +750,6 @@
                 if (e.code === 'ArrowDown' || e.code === 'KeyS') fastDrop();
             });
 
-            // Touch Swipes
             let startX = 0, startY = 0;
             window.addEventListener('touchstart', (e) => {
                 startX = e.touches[0].clientX;
@@ -661,18 +798,56 @@
         }
 
         /* ==========================================================
-           9. GAME LIFECYCLE & HIT LOGIC
+           9. GAME LIFECYCLE & UI FLOW
            ========================================================== */
+        const startMenu = document.getElementById('start-menu');
+        const gameOverMenu = document.getElementById('game-over-menu');
+        const leaderboardMenu = document.getElementById('leaderboard-menu');
+        const nameModal = document.getElementById('name-modal');
+        const hud = document.getElementById('hud');
+
         document.getElementById('btn-start').addEventListener('click', () => {
             soundManager.init();
-            document.getElementById('start-menu').classList.add('hidden');
-            document.getElementById('hud').classList.remove('hidden');
+            startMenu.classList.add('hidden');
+            hud.classList.remove('hidden');
             startGame();
         });
 
         document.getElementById('btn-restart').addEventListener('click', () => {
-            document.getElementById('game-over-menu').classList.add('hidden');
+            gameOverMenu.classList.add('hidden');
             startGame();
+        });
+
+        document.getElementById('btn-open-leaderboard').addEventListener('click', () => {
+            leaderboard.render('leaderboard-content', leaderboard.getPlayerName());
+            startMenu.classList.add('hidden');
+            leaderboardMenu.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-show-lb').addEventListener('click', () => {
+            leaderboard.render('leaderboard-content', leaderboard.getPlayerName());
+            gameOverMenu.classList.add('hidden');
+            leaderboardMenu.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-close-lb').addEventListener('click', () => {
+            leaderboardMenu.classList.add('hidden');
+            if (lives <= 0) {
+                gameOverMenu.classList.remove('hidden');
+            } else {
+                startMenu.classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('btn-save-name').addEventListener('click', () => {
+            const inputName = document.getElementById('player-name-input').value.trim();
+            if (inputName) {
+                leaderboard.setPlayerName(inputName);
+                const score = Math.floor(distanceTravelled);
+                leaderboard.saveScore(inputName, score);
+                nameModal.classList.add('hidden');
+                displayGameOverMenu();
+            }
         });
 
         function startGame() {
@@ -694,7 +869,7 @@
             obstacles = [];
 
             soundManager.playIntro(() => {
-                isIntroActive = false; // Start spawning obstacles after intro finishes
+                isIntroActive = false;
             });
         }
 
@@ -725,9 +900,26 @@
             guard.position.x = player.position.x;
 
             soundManager.playCaught(() => {
-                document.getElementById('final-dist').innerText = `${Math.floor(distanceTravelled)} m`;
-                document.getElementById('game-over-menu').classList.remove('hidden');
+                const finalScore = Math.floor(distanceTravelled);
+                const savedName = leaderboard.getPlayerName();
+
+                if (!savedName) {
+                    nameModal.classList.remove('hidden');
+                } else {
+                    leaderboard.saveScore(savedName, finalScore);
+                    displayGameOverMenu();
+                }
             });
+        }
+
+        function displayGameOverMenu() {
+            const finalScore = Math.floor(distanceTravelled);
+            const savedName = leaderboard.getPlayerName();
+            const bestScore = leaderboard.getHighScore(savedName);
+
+            document.getElementById('final-dist').innerText = `${finalScore} m`;
+            document.getElementById('best-dist').innerText = `${Math.max(finalScore, Number(bestScore))} m`;
+            gameOverMenu.classList.remove('hidden');
         }
 
         function updateLivesUI() {
@@ -736,7 +928,7 @@
         }
 
         /* ==========================================================
-           10. ANIMATION & MAIN LOOP
+           10. ANIMATION LOOP
            ========================================================== */
         let nextSpawnDist = 30;
 
@@ -751,11 +943,9 @@
                 distanceTravelled += moveDist;
                 document.getElementById('hud-distance').innerText = `📍 ${Math.floor(distanceTravelled)} m`;
 
-                // Player lateral movement
                 const targetX = LANES[targetLane];
                 player.position.x += (targetX - player.position.x) * 14 * delta;
 
-                // Player Jump Physics
                 if (!isGrounded) {
                     playerVY += GRAVITY * delta;
                     playerY += playerVY * delta;
@@ -767,13 +957,11 @@
                 }
                 player.position.y = playerY;
 
-                // Guard follows
                 const targetGuardZ = lives === 3 ? 3.5 : (lives === 2 ? 2.2 : 1.2);
                 guard.position.z += (targetGuardZ - guard.position.z) * 4 * delta;
                 guard.position.x += (player.position.x - guard.position.x) * 10 * delta;
                 guard.position.y = playerY * 0.5;
 
-                // Running Animations
                 const runCycle = Math.sin(time * currentSpeed * 1.2);
                 player.userData.leftLeg.rotation.x = runCycle * 0.6;
                 player.userData.rightLeg.rotation.x = -runCycle * 0.6;
@@ -785,7 +973,6 @@
                 guard.userData.leftArm.rotation.x = -runCycle * 0.7;
                 guard.userData.rightArm.rotation.x = runCycle * 0.7;
 
-                // Ground loop
                 for (let chunk of groundChunks) {
                     chunk.position.z += moveDist;
                     if (chunk.position.z > CHUNK_LENGTH) {
@@ -793,7 +980,6 @@
                     }
                 }
 
-                // Obstacles & Collision
                 for (let i = obstacles.length - 1; i >= 0; i--) {
                     const obs = obstacles[i];
                     obs.position.z += moveDist;
@@ -803,7 +989,7 @@
 
                     if (dz < 0.65 && dx < 0.7) {
                         if (obs.userData.jumpable && player.position.y > 0.75) {
-                            // Jumped over successfully
+                            // Cleared
                         } else {
                             handleObstacleHit(obs);
                             continue;
@@ -816,7 +1002,6 @@
                     }
                 }
 
-                // Spawn Obstacles (after intro audio ends)
                 if (!isIntroActive) {
                     nextSpawnDist -= moveDist;
                     if (nextSpawnDist <= 0) {
